@@ -1,0 +1,7 @@
+sceneproof.egg-info/
+__pycache__/
+.pytest_cache/
+.env
+*.pyc
+dist/
+build/

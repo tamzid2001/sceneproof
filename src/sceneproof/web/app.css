@@ -1,0 +1,17 @@
+:root{--bg:#07090f;--card:#0e1220;--line:#1f2740;--ink:#eef1ff;--dim:#8b94b8;--acc:#6d7cff;--ok:#3ddc97;--bad:#ff5d7a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 400px at 20% -5%,#1b2350 0,transparent 60%),var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px}.logo{font-size:20px}.logo b{color:var(--acc)}
+.pill{border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-size:12px;margin-left:6px}.ghost{color:var(--dim)}
+.card{background:linear-gradient(180deg,#11172a,var(--card));border:1px solid var(--line);border-radius:18px;padding:20px}
+.preflight{display:flex;gap:24px;justify-content:space-between;align-items:center;margin:6px 28px}.preflight ul{color:var(--dim);padding-left:18px}
+button{background:var(--acc);color:#fff;border:0;border-radius:12px;padding:12px 18px;font-weight:650;cursor:pointer;white-space:nowrap}
+.ghostbtn{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.stepper{display:flex;gap:8px;list-style:none;margin:18px 28px;padding:0}.stepper li{flex:1;text-align:center;padding:8px;border:1px solid var(--line);border-radius:99px;color:var(--dim)}.stepper li.on{color:#fff;border-color:var(--acc);background:#1a2150}
+.bento{display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px;margin:0 28px}.stage{grid-row:span 2}.wide{grid-column:span 2}
+canvas{width:100%;height:auto;background:#0a0e1a;border:1px solid var(--line);border-radius:12px}
+.empty{text-align:center;color:var(--dim);padding:26px}.empty .big{font-size:42px}.hidden{display:none}
+label{display:block;margin:10px 0;color:var(--dim)}select,input{width:100%;margin-top:4px;background:#0a0e1a;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px}
+.chk{display:flex;gap:8px;align-items:center}.chk input{width:auto}.approval{border:1px dashed var(--bad);border-radius:12px;padding:12px;margin:12px 0}
+.ring{position:relative;width:130px;margin:auto}.ring svg{transform:rotate(-90deg)}.ring circle{fill:none;stroke:#232c4d;stroke-width:10}.ring #arc{stroke:var(--acc);stroke-dasharray:327;stroke-dashoffset:327}.ring b{position:absolute;inset:38% 0;text-align:center;font-size:26px}
+pre{white-space:pre-wrap;color:#cdd5ff}code{color:#9fb0ff}.dim{color:var(--dim)}footer{padding:22px 28px;color:var(--dim)}
+@media(max-width:900px){.bento{grid-template-columns:1fr}.wide{grid-column:span 1}.preflight{flex-direction:column;align-items:flex-start}}

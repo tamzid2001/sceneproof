@@ -1,0 +1,7 @@
+{"id": "demo-warehouse", "seed": 7, "objects": [
+ {"id": "shelf-1", "kind": "shelf", "x": 0.05, "y": 0.0, "w": 0.28, "h": 0.55},
+ {"id": "crate-a", "kind": "crate", "x": 0.08, "y": 0.55, "w": 0.12, "h": 0.12},
+ {"id": "crate-b", "kind": "crate", "x": 0.40, "y": 0.0, "w": 0.14, "h": 0.14},
+ {"id": "barrel-1", "kind": "barrel", "x": 0.60, "y": 0.0, "w": 0.11, "h": 0.22},
+ {"id": "cone-1", "kind": "cone", "x": 0.78, "y": 0.0, "w": 0.06, "h": 0.12},
+ {"id": "robot-1", "kind": "robot", "x": 0.86, "y": 0.0, "w": 0.10, "h": 0.18}]}

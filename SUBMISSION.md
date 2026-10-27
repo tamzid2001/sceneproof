@@ -2,6 +2,7 @@
 
 - **Track:** Indie developer · **Theme:** 2 — Push the Frontier
 - **Project:** SceneProof · **Repo:** https://github.com/tamzid2001/sceneproof
+- **Live demo:** https://sceneproof-ten.vercel.app (public, no login, no keys needed)
 - **Deadline:** Nov 4, 2026, 9:00 PM ET (judging Nov 4–8, winners Nov 9)
 
 ## One-liner

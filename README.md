@@ -2,6 +2,8 @@
 
 **Segment it. Intervene. Prove it.**
 
+**Live demo: https://sceneproof-ten.vercel.app** · Repo: https://github.com/tamzid2001/sceneproof
+
 Counterfactual world-model verifier for robotics & embodied AI — built for the
 **Meta Global AI Developer Hackathon 2026** (Oct 26 – Nov 4, 2026), Theme 2:
 *Push the Frontier*, Indie track.

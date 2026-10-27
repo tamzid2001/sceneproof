@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/", "destination": "/api/index?ep=home" },
+    { "source": "/app.css", "destination": "/api/index?ep=css" },
+    { "source": "/app.js", "destination": "/api/index?ep=js" },
+    { "source": "/api/health", "destination": "/api/index?ep=health" },
+    { "source": "/api/scene", "destination": "/api/index?ep=scene" },
+    { "source": "/api/run", "destination": "/api/index?ep=run" }
+  ],
+  "functions": { "api/index.py": { "includeFiles": "src/sceneproof/**" } }
+}

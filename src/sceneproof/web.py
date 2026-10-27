@@ -15,22 +15,30 @@ TYPES = {".html": "text/html", ".css": "text/css", ".js": "text/javascript"}
 
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
+    def _route(self) -> str:
+        """Vercel rewrites /api/<ep> -> /api/index?ep=<ep>; map back to canonical paths."""
+        from urllib.parse import urlparse, parse_qs
+        u = urlparse(self.path)
+        ep = parse_qs(u.query).get("ep", [None])[0]
+        return {"health": "/api/health", "scene": "/api/scene", "run": "/api/run",
+                "home": "/", "css": "/app.css", "js": "/app.js"}.get(ep, u.path)
     def _send(self, code, body, ctype="application/json"):
         b = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code); self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
-        if self.path.startswith("/api/health"):
+        if self._route().startswith("/api/health"):
             return self._send(200, {"ok": True, "service": "sceneproof"})
-        if self.path.startswith("/api/scene"):
-            seed = int(self.path.split("seed=")[-1]) if "seed=" in self.path else 7
+        if self._route().startswith("/api/scene"):
+            from urllib.parse import urlparse, parse_qs
+            seed = int(parse_qs(urlparse(self.path).query).get("seed", ["7"])[0])
             s = generate(seed); return self._send(200, {"scene": s.to_dict(), "fingerprint": s.fingerprint()})
-        name = "index.html" if self.path in ("/", "") else self.path.lstrip("/").split("?")[0]
+        route = self._route(); name = "index.html" if route in ("/", "") else route.lstrip("/").split("?")[0]
         f = STATIC / name
         if f.is_file() and f.suffix in TYPES: return self._send(200, f.read_bytes(), TYPES[f.suffix])
         return self._send(404, {"error": "not found"})
     def do_POST(self):
-        if not self.path.startswith("/api/run"): return self._send(404, {"error": "not found"})
+        if not self._route().startswith("/api/run"): return self._send(404, {"error": "not found"})
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
             scene = generate(int(body.get("seed", 7)))

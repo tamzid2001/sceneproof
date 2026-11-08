@@ -70,11 +70,35 @@ CLI ──────────────────┼─► Engine ─�
 - `src/sceneproof/scene.py` — scene generator + counterfactual interventions.
 - `src/sceneproof/ledger.py` — append-only hash chain; tamper-evident replay.
 - `src/sceneproof/engine.py` — verify → approve → intervene → re-verify → explain.
-- `src/sceneproof/web.py` + `web/` — zero-dependency UI (stdlib HTTP server).
+- `src/sceneproof/web.py` + `web/` — zero-dependency UI (stdlib HTTP server) with
+  server-validated interventions (`action`, bounded deltas/sizes, id/kind checks)
+  and an `after_scene` counterfactual stage returned by `POST /api/run`.
 
 Design language: Dribbble-style dark bento hierarchy for data density, Mobbin
 shipped-app patterns (pre-flight intro, stepper, empty state, progressive
 disclosure) for trust. Rationale in [docs/DESIGN.md](docs/DESIGN.md).
+
+### Interactive editor (added 2026-11-08)
+
+The stage is an interactive 2D editor of real scene entities:
+
+- **Drag** any object directly on the canvas (pointer capture), or **nudge the
+  selected object with arrow keys** — a keyboard-only path to the same
+  counterfactual. The form (move/resize/add/remove) stays fully equivalent.
+- A pending counterfactual is drawn as a dashed cyan ghost explicitly labelled
+  **pending · unverified**. The UI only *proposes*: nothing counts until
+  **Verify scene** posts it to the deterministic server.
+- The **before/after compare** card is filled from the server's
+  `after_scene` (the exact intervened stage the engine verified), never from UI
+  geometry.
+- **Share links** encode seed + pending counterfactual in the URL; opening one
+  replays the *same* `POST /api/run` and shows the same verdict, honestly
+  labelled (`OFFLINE_REFERENCE` without a key, `META:` with one).
+- Sensitive interventions (remove, adding human/vehicle) still require a named
+  human approval, written to the hash-chained ledger.
+- Covered by **16 protocol tests** (`tests/test_web_api.py`) and **7 Playwright
+  browser E2E tests** (`tests/test_e2e_playwright.py`) that drive the real UI in
+  Chromium: load, drag, keyboard nudge, gated remove, gated add, share replay.
 
 ## Why this, why now
 

@@ -15,3 +15,11 @@ label{display:block;margin:10px 0;color:var(--dim)}select,input{width:100%;margi
 .ring{position:relative;width:130px;margin:auto}.ring svg{transform:rotate(-90deg)}.ring circle{fill:none;stroke:#232c4d;stroke-width:10}.ring #arc{stroke:var(--acc);stroke-dasharray:327;stroke-dashoffset:327}.ring b{position:absolute;inset:38% 0;text-align:center;font-size:26px}
 pre{white-space:pre-wrap;color:#cdd5ff}code{color:#9fb0ff}.dim{color:var(--dim)}footer{padding:22px 28px;color:var(--dim)}
 @media(max-width:900px){.bento{grid-template-columns:1fr}.wide{grid-column:span 1}.preflight{flex-direction:column;align-items:flex-start}}
+.linkbtn{background:transparent;border:0;color:#9fb0ff;text-decoration:underline;padding:0;font:inherit;cursor:pointer}
+#stage{touch-action:none;cursor:grab}#stage:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#stage:active{cursor:grabbing}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}.duo figure{margin:0}.duo figcaption{color:var(--dim);font-size:12px;margin-top:6px}
+.overlaylegend{font-size:12px}
+@media(max-width:640px){.duo{grid-template-columns:1fr}.preflight button{width:100%}header{flex-direction:column;gap:8px}}
+@media(prefers-reduced-motion:reduce){.ring #arc{transition:none}button{transition:none}}
+

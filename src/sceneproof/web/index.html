@@ -9,7 +9,7 @@
  <div><h1>Before we verify your world</h1>
  <p>SceneProof checks a robot's scene the way a compiler checks code — deterministically.
  Muse Spark may <em>explain</em> the verdict. SAM 3.1 may <em>segment</em> it. Neither may invent it.</p>
- <ul><li>Step 1 · Load a scene</li><li>Step 2 · Choose a counterfactual</li><li>Step 3 · Human approves anything sensitive</li><li>Step 4 · Get a proof you can replay</li></ul></div>
+ <ul><li>Step 1 · Load or edit a scene</li><li>Step 2 · Choose a counterfactual (drag, resize, add, remove)</li><li>Step 3 · Human approves anything sensitive</li><li>Step 4 · Get a proof you can replay and share</li></ul></div>
  <button id="start">Load demo scene →</button>
 </section>
 
@@ -17,23 +17,43 @@
 
 <main class="bento">
  <section class="card stage"><h2>Scene stage <span id="fp" class="dim"></span></h2>
-  <canvas id="stage" width="860" height="520"></canvas>
+  <canvas id="stage" width="860" height="520" tabindex="0"
+          aria-label="2D scene editor. Drag objects to set a pending counterfactual. Arrow keys nudge the selected object. Verification happens only when you press Run."></canvas>
   <div id="empty" class="empty"><div class="big">▦</div><p>No scene loaded yet.</p><p class="dim">Load the demo scene to see objects, supports and violations drawn as segmentation-style overlays.</p></div>
+  <p class="dim overlaylegend">
+   <label class="chk"><input type="checkbox" id="overlays" checked> constraint guides (supports, bounds)</label>
+   · <span id="ghostnote">drag or arrow-keys a selected object to set a <b>pending</b> counterfactual preview — nothing is verified until you press Run</span></p>
  </section>
 
  <aside class="card controls"><h2>Counterfactual</h2>
   <label>Object<select id="object"></select></label>
-  <label>Action<select id="action"><option value="">— verify only —</option><option value="move">Move</option><option value="remove">Remove (sensitive)</option><option value="resize">Resize</option></select></label>
+  <label>Action<select id="action"><option value="">— verify only —</option><option value="move">Move</option><option value="remove">Remove (sensitive)</option><option value="resize">Resize</option><option value="add">Add object</option></select></label>
+  <div id="addfields" class="hidden">
+   <label>New object id<input id="newid" placeholder="e.g. human-2"></label>
+   <label>Kind<select id="kind"><option value="crate">crate</option><option value="human">human (sensitive)</option><option value="robot">robot</option><option value="vehicle">vehicle (sensitive)</option><option value="barrel">barrel</option><option value="cone">cone</option><option value="shelf">shelf</option></select></label>
+  </div>
   <label>Δx <input id="dx" type="number" step="0.05" value="0"></label>
   <label>Δy <input id="dy" type="number" step="0.05" value="0"></label>
+  <div id="sizefields" class="hidden">
+   <label>W <input id="w" type="number" step="0.05" min="0.01" max="1" value="0.1"></label>
+   <label>H <input id="h" type="number" step="0.05" min="0.01" max="1" value="0.1"></label>
+  </div>
   <div id="approval" class="approval hidden"><b>Human approval gate</b>
    <p class="dim">This intervention is sensitive. A named human must approve it — the decision is written to the hash-chained ledger.</p>
    <input id="approver" placeholder="Approver name, e.g. safety-lead"><label class="chk"><input type="checkbox" id="approved"> I approve this intervention</label></div>
-  <button id="run">Verify scene</button><p id="status" role="status"></p>
+  <button id="run">Verify scene</button><p id="status" role="status" aria-live="polite"></p>
+  <p class="dim"><button id="share" class="linkbtn">Copy share link</button> encodes seed + pending counterfactual in the URL — replays this exact proof.</p>
  </aside>
 
  <section class="card score"><h2>Feasibility score</h2><div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52"/><circle id="arc" cx="60" cy="60" r="52"/></svg><b id="score">—</b></div><p id="verdict" class="dim">Run a verification to score this world.</p></section>
  <section class="card"><h2>Violations</h2><ul id="violations"><li class="dim">None yet — progressive disclosure: detail appears only when there is something to disclose.</li></ul></section>
+ <section class="card wide compare"><h2>Before / after <span class="dim">· after a verified run, the intervened stage is drawn by the same engine, not by the UI</span></h2>
+  <div class="duo">
+   <figure><canvas id="before" width="420" height="260"></canvas><figcaption>Base <span id="basefps" class="dim"></span></figcaption></figure>
+   <figure><canvas id="after" width="420" height="260"></canvas><figcaption>After intervention <span id="afterfp" class="dim"></span></figcaption></figure>
+  </div>
+  <p id="comparenote" class="dim">Pending counterfactual preview is drawn on the right as an <b>unverified</b> ghost. After a run this card shows both verified stages.</p>
+ </section>
  <section class="card wide"><h2>Explanation <span id="src" class="pill ghost"></span></h2><pre id="explain">Explanation appears here after verification. Offline runs are labelled OFFLINE_REFERENCE — never dressed up as a model call.</pre></section>
  <section class="card wide"><h2>Audit ledger</h2><p class="dim">Head <code id="head">GENESIS</code> · chain <code id="chain">—</code></p><p class="dim">Every verification, approval and counterfactual is hash-chained. Export the report JSON and replay it anywhere: <code>python -m sceneproof demo</code></p><button id="export" class="ghostbtn">Export report JSON</button></section>
 </main>

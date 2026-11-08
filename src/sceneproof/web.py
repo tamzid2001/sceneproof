@@ -19,12 +19,18 @@ class BodyError(ValueError):
     """Request validation failure surfaced to the client as an honest 400 message."""
 
 
-def parse_intervention(body) -> Intervention | None:
+def parse_intervention(body, scene=None) -> Intervention | None:
     """Validate a request body into an Intervention, or raise BodyError honestly.
 
     Contract: action ∈ {move, remove, resize, add}; dx/dy ∈ [-1,1]; resize/add
     sizes w/h ∈ [0.01,1]; object ids 1..64 chars of [A-Za-z0-9._-]; kind ∈ KINDS.
     No silent fixups — anything ambiguous is rejected, not repaired.
+
+    For move/remove/resize the object's kind is resolved from the SCENE, never
+    from the request: `Intervention.sensitive` decides the approval gate from
+    `kind`, so a client that omits (or lies about) `kind` must not be able to
+    move a human or a vehicle unapproved. `kind` is therefore only meaningful
+    for `add`, where the object does not exist yet.
     """
     if not isinstance(body, dict):
         raise BodyError("request body must be a JSON object")
@@ -45,18 +51,24 @@ def parse_intervention(body) -> Intervention | None:
         return round(v, 4)
 
     dx, dy = num("dx"), num("dy")
-    kind = str(body.get("kind", "crate")).strip()
-    if kind not in KINDS:
-        raise BodyError(f"kind must be one of {sorted(KINDS)}, got: {kind!r}")
     oid = str(body.get("object", "")).strip()
     if action == "add":
         if not ID_RE.fullmatch(oid):
             raise BodyError("object id (1-64 chars of [A-Za-z0-9._-]) is required for add")
+        kind = str(body.get("kind", "crate")).strip()
+        if kind not in KINDS:
+            raise BodyError(f"kind must be one of {sorted(KINDS)}, got: {kind!r}")
         w = num("w", default=0.1, lo=0.01, hi=1.0)
         h = num("h", default=0.1, lo=0.01, hi=1.0)
     else:
         if not ID_RE.fullmatch(oid):
             raise BodyError("object id (1-64 chars of [A-Za-z0-9._-]) is required")
+        if scene is None:
+            raise BodyError("server must resolve the target object from the scene")
+        try:
+            kind = scene.get(oid).kind
+        except KeyError:
+            raise BodyError(f"no object {oid!r} in scene {scene.id!r}") from None
         has_w, has_h = body.get("w") not in (None, ""), body.get("h") not in (None, "")
         if action == "resize" and not (has_w or has_h):
             raise BodyError("resize requires w and/or h to actually change geometry")
@@ -111,7 +123,7 @@ class H(BaseHTTPRequestHandler):
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
             scene = generate(int(body.get("seed", 7)))
-            iv = parse_intervention(body)
+            iv = parse_intervention(body, scene)
             rep = ENG.run(scene, iv, approver=body.get("approver") or None,
                           approved=bool(body.get("approved")))
             out = {"report": rep.to_dict(), "scene": scene.to_dict(),

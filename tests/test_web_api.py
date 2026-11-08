@@ -79,9 +79,19 @@ def test_parse_intervention_rejects_bad_id():
 
 def test_parse_intervention_resize_requires_size_range():
     with pytest.raises(BodyError, match="w must be between"):
-        parse_intervention({"action": "resize", "object": "crate-b", "w": 2.0})
-    iv = parse_intervention({"action": "resize", "object": "crate-b", "w": 0.3})
+        parse_intervention({"action": "resize", "object": "crate-b", "w": 2.0}, generate(7))
+    # non-add actions resolve the target's kind from the scene (never the client)
+    iv = parse_intervention({"action": "resize", "object": "crate-b", "w": 0.3}, generate(7))
     assert iv.w == 0.3 and iv.h == 0.0  # h omitted -> engine keeps original
+    assert iv.kind == "crate"          # resolved from the scene, not the request
+
+
+def test_parse_intervention_resolves_kind_from_the_scene():
+    """The approval gate must not depend on a client-supplied kind."""
+    with pytest.raises(BodyError, match="no object"):
+        parse_intervention({"action": "move", "object": "ghost-9"}, generate(7))
+    iv = parse_intervention({"action": "move", "object": "robot-1"}, generate(7))
+    assert iv.kind == "robot"
 
 
 # ---------- server contract ----------

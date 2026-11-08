@@ -19,12 +19,16 @@ class Engine:
         if intervention is not None:
             key = f"{scene.fingerprint()}:{intervention.action}:{intervention.object_id}"
             if intervention.sensitive:
-                if approver:
-                    self.gate.decide(key, approver, approved)
-                state = self.gate.request(key, True)
-                report.approvals.append({"key": key, "state": state})
-                if state != "APPROVED":
+                # Each sensitive run needs ITS OWN attributable human
+                # decision. An earlier approval is history in the ledger —
+                # it must never silently authorize a later request, or a
+                # one-time grant becomes a permanent bypass.
+                self.gate.request(key, True)
+                report.approvals.append({"key": key, "state": "PENDING"})
+                if not (approver and approved):
                     raise ApprovalRequired(f"sensitive intervention requires human approval ({key})")
+                state = self.gate.decide(key, approver, True)
+                report.approvals[-1]["state"] = state
             after_scene = apply(scene, intervention)
             after = verify(after_scene)
             self.ledger.append("counterfactual", {"action": intervention.action, "object": intervention.object_id,

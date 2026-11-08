@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.2 — 2026-11-08 — approval-gate hardening (layered on 0.1.1)
+
+Two real defects in the human-approval gate, both surfaced by new
+contract tests (`tests/test_web_contract.py`, 15 tests over real HTTP):
+
+1. **The gate could be bypassed by the client.** `Intervention.sensitive`
+   decides sensitivity from `kind`, but the request parser built
+   interventions with a client-supplied `kind` defaulting to `"crate"` —
+   so moving or resizing a **human or vehicle** was never gated, exactly
+   the case the documented rule promises to gate. `parse_intervention`
+   now resolves the target's kind from the scene itself for
+   move/remove/resize (and rejects unknown object ids with an honest
+   400 instead of silently no-opping); `kind` is honoured only for
+   `add`, where the object does not exist yet.
+2. **Approvals were sticky for the life of the process.**
+   `ApprovalGate.decisions` kept a key APPROVED forever, so after one
+   human granted "remove shelf-1" every later request for the same key
+   ran **unapproved** — a one-time grant had silently become a permanent
+   bypass. Each sensitive run now requires its own attributable approval
+   (named approver + decision in that request); earlier decisions remain
+   in the hash-chained ledger as history.
+
+`parse_intervention` now takes the scene as an argument; the CLI and
+tests were adapted accordingly. 48 Python tests pass.
+
 ## 0.1.1 — 2026-11-08
 - Interactive 2D scene editor: drag entities on the canvas, arrow-key nudging
   (keyboard path), form-equivalent move/resize/add/remove; pending

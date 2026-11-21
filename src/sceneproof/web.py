@@ -21,7 +21,7 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         ep = parse_qs(u.query).get("ep", [None])[0]
         return {"health": "/api/health", "scene": "/api/scene", "run": "/api/run",
-                "home": "/", "css": "/app.css", "js": "/app.js"}.get(ep, u.path)
+                "home": "/", "uiaudit": "/ui-audit.js", "css": "/app.css", "js": "/app.js"}.get(ep, u.path)
     def _send(self, code, body, ctype="application/json"):
         b = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code); self.send_header("Content-Type", ctype)

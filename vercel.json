@@ -3,6 +3,7 @@
   "rewrites": [
     { "source": "/", "destination": "/api/index?ep=home" },
     { "source": "/app.css", "destination": "/api/index?ep=css" },
+    { "source": "/ui-audit.js", "destination": "/api/index?ep=uiaudit" },
     { "source": "/app.js", "destination": "/api/index?ep=js" },
     { "source": "/api/health", "destination": "/api/index?ep=health" },
     { "source": "/api/scene", "destination": "/api/index?ep=scene" },

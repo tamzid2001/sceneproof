@@ -1,3 +1,4 @@
+@layer ui-sdk;
 :root{--bg:#07090f;--card:#0e1220;--line:#1f2740;--ink:#eef1ff;--dim:#8b94b8;--acc:#6d7cff;--ok:#3ddc97;--bad:#ff5d7a}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 400px at 20% -5%,#1b2350 0,transparent 60%),var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
 header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px}.logo{font-size:20px}.logo b{color:var(--acc)}
@@ -15,3 +16,7 @@ label{display:block;margin:10px 0;color:var(--dim)}select,input{width:100%;margi
 .ring{position:relative;width:130px;margin:auto}.ring svg{transform:rotate(-90deg)}.ring circle{fill:none;stroke:#232c4d;stroke-width:10}.ring #arc{stroke:var(--acc);stroke-dasharray:327;stroke-dashoffset:327}.ring b{position:absolute;inset:38% 0;text-align:center;font-size:26px}
 pre{white-space:pre-wrap;color:#cdd5ff}code{color:#9fb0ff}.dim{color:var(--dim)}footer{padding:22px 28px;color:var(--dim)}
 @media(max-width:900px){.bento{grid-template-columns:1fr}.wide{grid-column:span 1}.preflight{flex-direction:column;align-items:flex-start}}
+
+.ledger-trigger { display: inline-flex; align-items: center; gap: .65rem; font-size: inherit; }
+.ledger-trigger[aria-expanded="true"] span { transform: rotate(180deg); }
+.ledger-trigger:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

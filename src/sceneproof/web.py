@@ -1,17 +1,16 @@
 """Zero-dependency web app: stdlib http.server + static UI in web/.
 Run: python -m sceneproof.web [--port 8000] | --smoke"""
 from __future__ import annotations
-import argparse, json
+import argparse, json, math
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from .engine import Engine
 from .ledger import ApprovalRequired
-from .models import Intervention
+from .models import Intervention, KINDS
 from .scene import generate
 
 STATIC = Path(__file__).with_name("web")
-ENG = Engine()
-TYPES = {".html": "text/html", ".css": "text/css", ".js": "text/javascript"}
+TYPES = {".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".png": "image/png"}
 
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -21,7 +20,7 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         ep = parse_qs(u.query).get("ep", [None])[0]
         return {"health": "/api/health", "scene": "/api/scene", "run": "/api/run",
-                "home": "/", "uiaudit": "/ui-audit.js", "css": "/app.css", "js": "/app.js"}.get(ep, u.path)
+                "home": "/", "brand": "/brand.png", "favicon": "/favicon-32.png", "uiaudit": "/ui-audit.js", "css": "/app.css", "js": "/app.js"}.get(ep, u.path)
     def _send(self, code, body, ctype="application/json"):
         b = body if isinstance(body, bytes) else json.dumps(body).encode()
         self.send_response(code); self.send_header("Content-Type", ctype)
@@ -40,17 +39,33 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._route().startswith("/api/run"): return self._send(404, {"error": "not found"})
         try:
-            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            size = int(self.headers.get("Content-Length", 0))
+            if not 0 <= size <= 16_384:
+                return self._send(413, {"error": "Verification input exceeds 16 KB."})
+            body = json.loads(self.rfile.read(size) or b"{}")
             scene = generate(int(body.get("seed", 7)))
             iv = None
             if body.get("action"):
-                iv = Intervention(body["action"], body.get("object", "crate-b"),
-                                  dx=float(body.get("dx", 0)), dy=float(body.get("dy", 0)),
-                                  kind=body.get("kind", "crate"))
-            rep = ENG.run(scene, iv, approver=body.get("approver") or None,
-                          approved=bool(body.get("approved")))
+                action = body["action"]
+                object_id = str(body.get("object", "crate-b"))
+                if action not in {"move", "remove", "resize", "add"}:
+                    raise ValueError("Choose a supported intervention.")
+                kind = body.get("kind", "crate") if action == "add" else scene.get(object_id).kind
+                if kind not in KINDS:
+                    raise ValueError("Choose a supported object kind.")
+                if not object_id or len(object_id) > 80 or (action == "add" and any(o.id == object_id for o in scene.objects)):
+                    raise ValueError("Choose a distinct, valid object identifier.")
+                dx, dy, width, height = (float(body.get(field, 0)) for field in ("dx", "dy", "w", "h"))
+                if not (math.isfinite(dx) and math.isfinite(dy) and -2 <= dx <= 2 and -2 <= dy <= 2):
+                    raise ValueError("Choose finite offsets between −2 and 2.")
+                if not (0 <= width <= 2 and 0 <= height <= 2):
+                    raise ValueError("Choose finite dimensions between 0 and 2.")
+                iv = Intervention(action, object_id, dx, dy, width, height, kind)
+            engine = Engine()
+            rep = engine.run(scene, iv, approver=body.get("approver") or None,
+                          approved=body.get("approved") is True, explain=body.get("explain", True) is True)
             return self._send(200, {"report": rep.to_dict(), "scene": scene.to_dict(),
-                                    "chain_valid": ENG.ledger.verify_chain()})
+                                    "chain_valid": engine.ledger.verify_chain()})
         except ApprovalRequired as e:
             return self._send(202, {"status": "APPROVAL_REQUIRED", "detail": str(e)})
         except Exception as e:  # keep the demo honest, never 500 silently

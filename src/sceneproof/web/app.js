@@ -10,27 +10,111 @@ function draw(objects,violations=[]){
   x.setLineDash([6,4]);x.strokeRect(px,py,pw,ph);x.setLineDash([]);
   x.fillStyle="#eef1ff";x.font="13px system-ui";x.fillText(`${o.id} · ${o.kind}`,px+6,py+18);}
 }
-async function load(){const r=await(await fetch("/api/scene?seed=7")).json();scene=r.scene;
- $("empty").classList.add("hidden");$("fp").textContent="· fingerprint "+r.fingerprint;
- $("object").innerHTML=scene.objects.map(o=>`<option>${o.id}</option>`).join("");draw(scene.objects);
- document.querySelectorAll(".stepper li").forEach((li,i)=>li.classList.toggle("on",i===1));}
-$("start").onclick=load;
-$("action").onchange=e=>$("approval").classList.toggle("hidden",e.target.value!=="remove");
-$("run").onclick=async()=>{if(!scene)await load();
- const body={seed:7,action:$("action").value||null,object:$("object").value,dx:+$("dx").value,dy:+$("dy").value,
-  approver:$("approver").value,approved:$("approved").checked};
- const res=await fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
- const r=await res.json();
- if(r.status==="APPROVAL_REQUIRED"){$("approval").classList.remove("hidden");$("status").textContent="Approval required — a named human must approve above, then verify again.";return;}
- if(r.error){$("status").textContent=r.error;return;}
- lastReport=r.report;const v=r.report.intervened||r.report.baseline;
- $("score").textContent=Math.round(v.score);$("arc").style.strokeDashoffset=327-327*v.score/100;
- $("arc").style.stroke=v.feasible?"#3ddc97":"#ff5d7a";
- $("verdict").textContent=(v.feasible?"FEASIBLE":"INFEASIBLE")+(r.report.effect!=null?` · counterfactual effect ${r.report.effect>=0?"+":""}${r.report.effect.toFixed(1)} pts`:"");
- $("violations").innerHTML=v.violations.length?v.violations.map(x=>`<li><b>[${x.rule}]</b> ${x.detail}</li>`).join(""):'<li class="dim">No violations. This world holds together.</li>';
- $("explain").textContent=r.report.explanation;$("src").textContent=r.report.explanation_source;
- $("head").textContent=r.report.ledger_head.slice(0,16)+"…";$("chain").textContent=r.chain_valid?"valid ✓":"BROKEN";
- draw(scene.objects,v.violations);
- document.querySelectorAll(".stepper li").forEach((li,i)=>li.classList.toggle("on",i===3));};
-$("export").onclick=()=>{const b=new Blob([JSON.stringify(lastReport||{note:"run a verification first"},null,2)],{type:"application/json"});
- const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="sceneproof-report.json";a.click();};
+const seed = 7;
+let busy = false;
+
+async function json(url, options={}) {
+ const response=await fetch(url,{...options,signal:AbortSignal.timeout(20000)});
+ const body=await response.json();
+ if(!response.ok)throw Error(body.error||'The scene service could not complete this request.');
+ return body;
+}
+function setStage(index){
+ document.querySelectorAll('.stepper li').forEach((li,i)=>li.classList.toggle('on',i===index));
+}
+function syncInput(){
+ const action=$('action').value,object=scene?.objects.find(o=>o.id===$('object').value);
+ $('approval').classList.toggle('hidden',action!=='remove'&&!(action&&['human','vehicle'].includes(object?.kind)));
+ $('offsets').classList.toggle('hidden',action!=='move');
+ $('dimensions').classList.toggle('hidden',action!=='resize');
+ if(object){$('width').value=String(object.w);$('height').value=String(object.h);}
+ $('approved').checked=false;
+}
+function inspect(view){
+ const current=view==='intervened'&&lastReport?.intervened_scene ? lastReport.intervened_scene : scene;
+ if(!current)return;
+ const verdict=view==='intervened' ? lastReport?.intervened : lastReport?.baseline;
+ draw(current.objects,verdict?.violations||[]);
+}
+function invalidate(){
+ lastReport=null;
+ $('export').disabled=true;
+ $('scene-view').value='baseline';
+ $('scene-view').disabled=true;
+ $('score').textContent='—';
+ $('arc').style.strokeDashoffset=327;
+ $('verdict').textContent='Run a verification to score this world.';
+ $('violations').replaceChildren();
+ $('explain').textContent='Explanation appears here after verification.';
+ $('src').textContent='';
+ $('head').textContent='GENESIS';
+ $('chain').textContent='—';
+ if(scene)inspect('baseline');
+}
+async function load(){
+ const data=await json('/api/scene?seed='+seed);
+ scene=data.scene;
+ $('empty').classList.add('hidden');
+ $('fp').textContent='· fingerprint '+data.fingerprint;
+ $('object').replaceChildren(...scene.objects.map(o=>new Option(o.id,o.id)));
+ syncInput();
+ setStage(1);
+ invalidate();
+}
+async function action(work){
+ if(busy)return;
+ busy=true;
+ for(const id of ['start','run','object','action','dx','dy','width','height','explain-model','approver','approved'])$(id).disabled=true;
+ try{$('status').textContent='Working…';await work();}
+ catch(error){$('status').textContent=error.name==='TimeoutError'?'The request timed out. Try again.':error.message;}
+ finally{busy=false;for(const id of ['start','run','object','action','dx','dy','width','height','explain-model','approver','approved'])$(id).disabled=false;}
+}
+$('start').onclick=()=>action(async()=>{await load();$('status').textContent='Demo scene loaded.';});
+for(const id of ['object','action'])$(id).onchange=()=>{syncInput();invalidate();};
+for(const id of ['dx','dy','width','height'])$(id).oninput=invalidate;
+$('scene-view').onchange=()=>inspect($('scene-view').value);
+$('run').onclick=()=>action(async()=>{
+ if(!scene)await load();
+ const type=$('action').value;
+ const body={seed,action:type||null,object:$('object').value,
+   ...(type==='move'?{dx:$('dx').valueAsNumber||0,dy:$('dy').valueAsNumber||0}:{}),
+   ...(type==='resize'?{w:$('width').valueAsNumber,h:$('height').valueAsNumber}:{}),
+   approver:$('approver').value,approved:$('approved').checked,explain:$('explain-model').checked};
+ if(type==='resize'&&![body.w,body.h].every(n=>Number.isFinite(n)&&n>0&&n<=2))throw Error('Enter width and height between 0 and 2.');
+ const result=await json('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ if(result.status==='APPROVAL_REQUIRED'){
+  $('approval').classList.remove('hidden');
+  $('status').textContent='A named approver must approve this intervention before verification.';
+  return;
+ }
+ lastReport=result.report;
+ const verdict=lastReport.intervened||lastReport.baseline;
+ $('score').textContent=Math.round(verdict.score);
+ $('arc').style.strokeDashoffset=327-327*verdict.score/100;
+ $('arc').style.stroke=verdict.feasible?'#3ddc97':'#ff5d7a';
+ $('verdict').textContent=(verdict.feasible?'FEASIBLE':'INFEASIBLE')+(lastReport.effect===null?'':` · counterfactual effect ${lastReport.effect>=0?'+':''}${lastReport.effect.toFixed(1)} pts`);
+ const items=verdict.violations.map(value=>{
+  const item=document.createElement('li');
+  item.textContent=`[${value.rule}] ${value.detail}`;return item;
+ });
+ if(!items.length){const item=document.createElement('li');item.textContent='No violations found.';items.push(item);}
+ $('violations').replaceChildren(...items);
+ $('explain').textContent=lastReport.explanation;
+ $('src').textContent=lastReport.explanation_source;
+ $('head').textContent=lastReport.ledger_head.slice(0,16)+'…';
+ $('chain').textContent=result.chain_valid?'valid ✓':'BROKEN';
+ $('scene-view').disabled=!lastReport.intervened_scene;
+ $('scene-view').value=lastReport.intervened_scene?'intervened':'baseline';
+ $('export').disabled=false;
+ inspect($('scene-view').value);
+ setStage(3);
+ $('status').textContent='Verification recorded. Switch views to inspect the geometry.';
+});
+$('export').onclick=()=>{
+ if(!lastReport)return;
+ const bundle={...lastReport,baseline_scene:scene,schema_version:1};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,2)],{type:'application/json'}));
+ const link=document.createElement('a');link.href=url;link.download='sceneproof-report.json';link.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+syncInput();

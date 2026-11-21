@@ -12,7 +12,7 @@ class Engine:
         self.gate = ApprovalGate(self.ledger)
 
     def run(self, scene, intervention: Intervention | None = None,
-            approver: str | None = None, approved: bool = False) -> Report:
+            approver: str | None = None, approved: bool = False, *, explain: bool = True) -> Report:
         base = verify(scene)
         self.ledger.append("verified", {"scene": scene.fingerprint(), "score": base.score, "feasible": base.feasible})
         report = Report(baseline=base)
@@ -30,7 +30,11 @@ class Engine:
             self.ledger.append("counterfactual", {"action": intervention.action, "object": intervention.object_id,
                                                   "score": after.score, "feasible": after.feasible})
             report.intervened, report.effect = after, after.score - base.score
-        report.explanation, report.explanation_source = providers.explain_verdict(report.to_dict())
+            report.intervened_scene = after_scene
+        if explain:
+            report.explanation, report.explanation_source = providers.explain_verdict(report.to_dict())
+        else:
+            report.explanation = "Deterministic verification completed. Inspect the verdict and its geometry."
         self.ledger.append("explained", {"source": report.explanation_source})
         report.ledger_head = self.ledger.head
         return report

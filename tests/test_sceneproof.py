@@ -67,3 +67,55 @@ def test_provider_blocks_without_credentials(monkeypatch):
 def test_web_smoke():
     from sceneproof.web import main
     assert main(["--smoke", "--port", "8765"]) == 0
+
+
+def test_counterfactual_geometry_matches_the_verdict(monkeypatch):
+    from sceneproof import providers
+
+    def fail(_):
+        raise AssertionError("This verification should stay local")
+
+    monkeypatch.setattr(providers, "explain_verdict", fail)
+    scene = generate()
+    report = Engine().run(scene, Intervention("resize", "crate-b", w=.9, h=.32), explain=False)
+    assert report.intervened_scene.get("crate-b").w == .9
+    assert scene.get("crate-b").w == .14
+    assert report.intervened == verify(report.intervened_scene)
+    assert report.to_dict()["intervened_scene"] == report.intervened_scene.to_dict()
+
+
+def test_web_counterfactual_requires_request_approval_and_preserves_resize():
+    import json
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+    from sceneproof.web import H
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), H) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        origin = f"http://127.0.0.1:{server.server_address[1]}"
+
+        def request(body):
+            data = json.dumps({"explain": False, **body}).encode()
+            req = urllib.request.Request(origin + "/api/run", data=data, headers={"Content-Type": "application/json"})
+            try:
+                response = urllib.request.urlopen(req, timeout=4)
+            except urllib.error.HTTPError as error:
+                response = error
+            with response:
+                return response.status, json.load(response)
+
+        try:
+            code, body = request({"action": "resize", "object": "crate-b", "w": .9, "h": .32})
+            assert code == 200
+            box = next(o for o in body["report"]["intervened_scene"]["objects"] if o["id"] == "crate-b")
+            assert (box["w"], box["h"]) == (.9, .32)
+            assert request({"action": "resize", "h": "NaN"})[0] == 400
+            assert request({"action": "remove", "object": "shelf-1", "approver": "reviewer", "approved": True})[0] == 200
+            assert request({"action": "remove", "object": "shelf-1"})[0] == 202
+            assert request({"action": "remove", "object": "shelf-1", "approver": "reviewer", "approved": "false"})[0] == 202
+        finally:
+            server.shutdown()
+            thread.join(timeout=3)

@@ -84,9 +84,11 @@ class Report:
     explanation_source: str = "OFFLINE_REFERENCE"  # never relabelled as a model call
     ledger_head: str = ""
     approvals: list = field(default_factory=list)
+    intervened_scene: Scene | None = None
     def to_dict(self):
         return {"baseline": self.baseline.to_dict(),
                 "intervened": self.intervened.to_dict() if self.intervened else None,
                 "effect": None if self.effect is None else round(self.effect, 2),
                 "explanation": self.explanation, "explanation_source": self.explanation_source,
-                "ledger_head": self.ledger_head, "approvals": self.approvals}
+                "ledger_head": self.ledger_head, "approvals": self.approvals,
+                "intervened_scene": self.intervened_scene.to_dict() if self.intervened_scene else None}

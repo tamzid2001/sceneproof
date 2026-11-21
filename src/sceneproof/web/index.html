@@ -10,7 +10,12 @@
  <p>SceneProof checks a robot's scene the way a compiler checks code — deterministically.
  Muse Spark may <em>explain</em> the verdict. SAM 3.1 may <em>segment</em> it. Neither may invent it.</p>
  <ul><li>Step 1 · Load a scene</li><li>Step 2 · Choose a counterfactual</li><li>Step 3 · Human approves anything sensitive</li><li>Step 4 · Get a proof you can replay</li></ul></div>
- <button id="start">Load demo scene →</button>
+ <div class="scene-import">
+  <button type="button" id="start">Load demo scene</button>
+  <label for="scene-file">Import your scene JSON</label>
+  <input id="scene-file" type="file" accept=".json,application/json" aria-describedby="scene-import-hint">
+  <p id="scene-import-hint" class="dim">Use a scene document or an exported SceneProof report. Coordinates are normalized to the stage.</p>
+ </div>
 </section>
 
 <ol class="stepper"><li class="on">1 Scene</li><li>2 Intervene</li><li>3 Verify</li><li>4 Report</li></ol>
@@ -19,7 +24,7 @@
  <section class="card stage"><h2>Scene stage <span id="fp" class="dim"></span></h2>
   <div class="scene-layout"><label>Show geometry <select id="scene-view" disabled><option value="baseline">Baseline</option><option value="intervened">Counterfactual</option></select></label></div>
   <canvas id="stage" width="860" height="520" aria-label="Outlined geometry for the selected scene"></canvas>
-  <div id="empty" class="empty"><div class="big">▦</div><p>No scene loaded yet.</p><p class="dim">Load the demo scene to see objects, supports and violations drawn as segmentation-style overlays.</p></div>
+  <div id="empty" class="empty"><div class="big">▦</div><p>No scene loaded yet.</p><p class="dim">Load a scene to see objects, supports and violations drawn as segmentation-style overlays.</p></div>
  </section>
 
  <aside class="card controls"><h2>Counterfactual</h2>

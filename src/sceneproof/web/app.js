@@ -1,4 +1,4 @@
-const $=id=>document.getElementById(id);let scene=null,lastReport=null;
+const $=id=>document.getElementById(id);let scene=null,lastReport=null,sceneSource=null;
 const COLORS={crate:"#6d7cff",robot:"#3ddc97",human:"#ffb84d",barrel:"#c792ff",cone:"#ff8fa3",vehicle:"#4dc9ff",shelf:"#5b6b9f"};
 function draw(objects,violations=[]){
  const c=$("stage"),x=c.getContext("2d"),W=c.width,H=c.height;x.clearRect(0,0,W,H);
@@ -51,32 +51,50 @@ function invalidate(){
  $('chain').textContent='—';
  if(scene)inspect('baseline');
 }
-async function load(){
- const data=await json('/api/scene?seed='+seed);
+function selectScene(data){
  scene=data.scene;
+ sceneSource=data.source;
  $('empty').classList.add('hidden');
- $('fp').textContent='· fingerprint '+data.fingerprint;
+ $('fp').textContent=`· ${sceneSource==='USER_SUPPLIED'?'Imported scene':'Demo fixture'} · ${data.fingerprint}`;
  $('object').replaceChildren(...scene.objects.map(o=>new Option(o.id,o.id)));
+ $('action').value='';
  syncInput();
  setStage(1);
  invalidate();
 }
+async function load(){
+ selectScene(await json('/api/scene?seed='+seed));
+}
 async function action(work){
  if(busy)return;
  busy=true;
- for(const id of ['start','run','object','action','dx','dy','width','height','explain-model','approver','approved'])$(id).disabled=true;
+ for(const id of ['start','scene-file','run','object','action','dx','dy','width','height','explain-model','approver','approved'])$(id).disabled=true;
  try{$('status').textContent='Working…';await work();}
  catch(error){$('status').textContent=error.name==='TimeoutError'?'The request timed out. Try again.':error.message;}
- finally{busy=false;for(const id of ['start','run','object','action','dx','dy','width','height','explain-model','approver','approved'])$(id).disabled=false;}
+ finally{busy=false;for(const id of ['start','scene-file','run','object','action','dx','dy','width','height','explain-model','approver','approved'])$(id).disabled=false;}
 }
 $('start').onclick=()=>action(async()=>{await load();$('status').textContent='Demo scene loaded.';});
+$('scene-file').onchange=event=>{
+ const file=event.currentTarget.files[0];
+ event.currentTarget.value='';
+ if(!file)return;
+ void action(async()=>{
+  if(file.size>65_000)throw Error('Choose a JSON file under 64 KiB.');
+  let input;
+  try{input=JSON.parse((await file.text()).replace(/^\uFEFF/,''));}
+  catch{throw Error('Choose a valid scene JSON file.');}
+  selectScene(await json('/api/scene',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(input?.baseline_scene??input)}));
+  $('status').textContent='Imported scene is ready to verify.';
+ });
+};
 for(const id of ['object','action'])$(id).onchange=()=>{syncInput();invalidate();};
 for(const id of ['dx','dy','width','height'])$(id).oninput=invalidate;
 $('scene-view').onchange=()=>inspect($('scene-view').value);
 $('run').onclick=()=>action(async()=>{
  if(!scene)await load();
  const type=$('action').value;
- const body={seed,action:type||null,object:$('object').value,
+ const body={...(sceneSource==='USER_SUPPLIED'?{scene}:{seed}),action:type||null,object:$('object').value,
    ...(type==='move'?{dx:$('dx').valueAsNumber||0,dy:$('dy').valueAsNumber||0}:{}),
    ...(type==='resize'?{w:$('width').valueAsNumber,h:$('height').valueAsNumber}:{}),
    approver:$('approver').value,approved:$('approved').checked,explain:$('explain-model').checked};
@@ -112,7 +130,7 @@ $('run').onclick=()=>action(async()=>{
 });
 $('export').onclick=()=>{
  if(!lastReport)return;
- const bundle={...lastReport,baseline_scene:scene,schema_version:1};
+ const bundle={...lastReport,baseline_scene:scene,scene_source:sceneSource,schema_version:1};
  const url=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,2)],{type:'application/json'}));
  const link=document.createElement('a');link.href=url;link.download='sceneproof-report.json';link.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);

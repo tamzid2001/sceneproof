@@ -92,3 +92,11 @@ Hackathon submission text, demo-video script and judging-criteria mapping:
 Submissions close **Nov 4, 2026, 9:00 PM ET**.
 
 MIT — original work only. No private or third-party code copied.
+
+### Verify your own scene
+
+Upload a scene JSON file in the browser, or send a document with `id` and
+`objects` to `POST /api/scene`. Each object needs a unique `id`, supported
+`kind` and normalized rectangle `x`, `y`, `w`, `h`. To verify it through
+`POST /api/run`, supply the returned scene under `scene` in place of a seed.
+Both responses include the scene fingerprint and its provenance.

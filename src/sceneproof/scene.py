@@ -1,7 +1,8 @@
 """Seeded synthetic scene generator + counterfactual interventions (clean-room)."""
 from __future__ import annotations
+import math
 import random
-from .models import Scene, SceneObject, Intervention
+from .models import KINDS, Scene, SceneObject, Intervention
 
 def generate(seed: int = 7, scene_id: str = "demo-warehouse") -> Scene:
     """A grounded, feasible warehouse scene by construction."""
@@ -35,3 +36,37 @@ def apply(scene: Scene, iv: Intervention) -> Scene:
     else:
         raise ValueError(f"unknown intervention action: {iv.action}")
     return Scene(scene.id + ":cf", tuple(objs), scene.seed)
+
+
+def supplied_scene(value: object) -> Scene:
+    """Read a bounded scene document; the verifier owns out-of-stage checks."""
+    def identifier(v: object) -> bool:
+        return (isinstance(v, str) and 1 <= len(v) <= 80 and v.strip() == v
+                and v.isprintable())
+
+    if not isinstance(value, dict) or not set(value) <= {"id", "seed", "objects"}:
+        raise ValueError("Scene JSON must contain id, objects and an optional seed.")
+    scene_id = value.get("id")
+    seed = value.get("seed", 0)
+    entries = value.get("objects")
+    if not identifier(scene_id) or type(seed) is not int or not -(2**31) <= seed < 2**31:
+        raise ValueError("Use a printable scene ID up to 80 characters and a 32-bit integer seed.")
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 64:
+        raise ValueError("Supply between 1 and 64 scene objects.")
+    objects = []
+    seen = set()
+    for index, item in enumerate(entries, 1):
+        if not isinstance(item, dict) or set(item) != {"id", "kind", "x", "y", "w", "h"}:
+            raise ValueError(f"Object {index} needs id, kind, x, y, w and h.")
+        object_id, kind = item["id"], item["kind"]
+        if not identifier(object_id) or object_id in seen:
+            raise ValueError(f"Use a unique printable ID for object {index}.")
+        if not isinstance(kind, str) or kind not in KINDS:
+            raise ValueError(f"Object {index} has an unsupported kind.")
+        coordinates = [item[key] for key in ("x", "y", "w", "h")]
+        if any(type(v) not in (int, float) or not -2 <= v <= 2 or not math.isfinite(v)
+               for v in coordinates) or not all(v > 0 for v in coordinates[2:]):
+            raise ValueError(f"Object {index} needs bounded coordinates and positive dimensions.")
+        seen.add(object_id)
+        objects.append(SceneObject(object_id, kind, *(float(v) for v in coordinates)))
+    return Scene(scene_id, tuple(objects), seed)

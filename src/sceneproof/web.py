@@ -7,7 +7,7 @@ from pathlib import Path
 from .engine import Engine
 from .ledger import ApprovalRequired
 from .models import Intervention, KINDS
-from .scene import generate
+from .scene import generate, supplied_scene
 
 STATIC = Path(__file__).with_name("web")
 TYPES = {".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".png": "image/png"}
@@ -31,19 +31,31 @@ class H(BaseHTTPRequestHandler):
         if self._route().startswith("/api/scene"):
             from urllib.parse import urlparse, parse_qs
             seed = int(parse_qs(urlparse(self.path).query).get("seed", ["7"])[0])
-            s = generate(seed); return self._send(200, {"scene": s.to_dict(), "fingerprint": s.fingerprint()})
+            s = generate(seed)
+            return self._send(200, {"scene": s.to_dict(), "fingerprint": s.fingerprint(), "source": "FIXTURE"})
         route = self._route(); name = "index.html" if route in ("/", "") else route.lstrip("/").split("?")[0]
         f = STATIC / name
         if f.is_file() and f.suffix in TYPES: return self._send(200, f.read_bytes(), TYPES[f.suffix])
         return self._send(404, {"error": "not found"})
     def do_POST(self):
-        if not self._route().startswith("/api/run"): return self._send(404, {"error": "not found"})
+        route = self._route()
+        if route not in {"/api/run", "/api/scene"}:
+            return self._send(404, {"error": "not found"})
         try:
             size = int(self.headers.get("Content-Length", 0))
-            if not 0 <= size <= 16_384:
-                return self._send(413, {"error": "Verification input exceeds 16 KB."})
+            if not 0 <= size <= 65_536:
+                return self._send(413, {"error": "Scene input exceeds 64 KiB."})
             body = json.loads(self.rfile.read(size) or b"{}")
-            scene = generate(int(body.get("seed", 7)))
+            if not isinstance(body, dict):
+                raise ValueError("Use a JSON object.")
+            if route == "/api/scene":
+                scene = supplied_scene(body)
+                return self._send(200, {"scene": scene.to_dict(),
+                                        "fingerprint": scene.fingerprint(), "source": "USER_SUPPLIED"})
+            if "scene" in body and "seed" in body:
+                raise ValueError("Send either a scene object or a fixture seed.")
+            source = "USER_SUPPLIED" if "scene" in body else "FIXTURE"
+            scene = supplied_scene(body["scene"]) if "scene" in body else generate(int(body.get("seed", 7)))
             iv = None
             if body.get("action"):
                 action = body["action"]
@@ -65,7 +77,8 @@ class H(BaseHTTPRequestHandler):
             rep = engine.run(scene, iv, approver=body.get("approver") or None,
                           approved=body.get("approved") is True, explain=body.get("explain", True) is True)
             return self._send(200, {"report": rep.to_dict(), "scene": scene.to_dict(),
-                                    "chain_valid": engine.ledger.verify_chain()})
+                                    "chain_valid": engine.ledger.verify_chain(),
+                                    "fingerprint": scene.fingerprint(), "source": source})
         except ApprovalRequired as e:
             return self._send(202, {"status": "APPROVAL_REQUIRED", "detail": str(e)})
         except Exception as e:  # keep the demo honest, never 500 silently

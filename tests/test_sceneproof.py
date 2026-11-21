@@ -119,3 +119,44 @@ def test_web_counterfactual_requires_request_approval_and_preserves_resize():
         finally:
             server.shutdown()
             thread.join(timeout=3)
+
+def test_scene_upload_and_run_use_same_fingerprint_and_actual_geometry():
+    import json
+    from http.server import ThreadingHTTPServer
+    from threading import Thread
+    from urllib.error import HTTPError
+    from urllib.request import Request, urlopen
+
+    from sceneproof.web import H
+
+    scene = {"id": "customer-plan", "objects": [
+        {"id": "cargo-3", "kind": "crate", "x": 0.25, "y": 0.4, "w": 0.1, "h": 0.1}
+    ]}
+    with ThreadingHTTPServer(("127.0.0.1", 0), H) as server:
+        worker = Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        def request(path, body):
+            req = Request(base + path, data=json.dumps(body).encode(),
+                          headers={"Content-Type": "application/json"})
+            with urlopen(req, timeout=5) as response:
+                return json.load(response)
+
+        try:
+            loaded = request("/api/scene", scene)
+            result = request("/api/run", {"scene": loaded["scene"], "explain": False})
+            assert result["fingerprint"] == loaded["fingerprint"]
+            assert result["source"] == "USER_SUPPLIED"
+            assert result["report"]["baseline"]["violations"][0]["rule"] == "unsupported"
+            moved = request("/api/run", {"scene": loaded["scene"], "object": "cargo-3",
+                                          "action": "move", "dy": -0.4, "explain": False})
+            assert moved["report"]["intervened"]["feasible"]
+            with pytest.raises(HTTPError) as error:
+                request("/api/run", {"scene": scene, "seed": 7})
+            assert error.value.code == 400
+            with pytest.raises(HTTPError) as error:
+                request("/api/scene", {**scene, "objects": scene["objects"] * 2})
+            assert error.value.code == 400
+        finally:
+            server.shutdown()
+            worker.join(timeout=5)
